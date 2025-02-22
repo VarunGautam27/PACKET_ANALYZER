@@ -271,13 +271,123 @@ class EnhancedRecoveryGUI:
         else:
             self.refresh_files_list(backup_files)
 
+    # def scan_temp_files(self):
+    #     temp_files = self.temp_scanner.scan_temp_files()
+    #     if not temp_files:
+    #         self.refresh_files_list([])  # This will show "No files found" message
+    #     else:
+    #         self.refresh_files_list(temp_files)
+
     def scan_temp_files(self):
-        temp_files = self.temp_scanner.scan_temp_files()
+        directory = self.dir_var.get()
+        if not directory:
+            messagebox.showwarning("Warning", "Please select a directory first")
+            return
+            
+        # Create dialog for scan type selection
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Select Scan Type")
+        dialog.geometry("300x150")
+        dialog.transient(self.root)  # Make dialog modal
+        
+        # Center the dialog
+        dialog.update_idletasks()
+        width = dialog.winfo_width()
+        height = dialog.winfo_height()
+        x = (dialog.winfo_screenwidth() // 2) - (width // 2)
+        y = (dialog.winfo_screenheight() // 2) - (height // 2)
+        dialog.geometry(f'{width}x{height}+{x}+{y}')
+        
+        # Frame for content
+        frame = ttk.Frame(dialog, padding="20")
+        frame.pack(fill=tk.BOTH, expand=True)
+        
+        ttk.Label(frame, text="Choose Scan Type:").pack(pady=(0, 10))
+        
+        scan_result = {'type': None}  # Using dict to store result
+        
+        def set_scan_type(scan_type):
+            scan_result['type'] = scan_type
+            dialog.destroy()
+        
+        ttk.Button(
+            frame, 
+            text="Scan Current Directory", 
+            command=lambda: set_scan_type("directory")
+        ).pack(fill=tk.X, pady=5)
+        
+        ttk.Button(
+            frame, 
+            text="Scan Entire System", 
+            command=lambda: set_scan_type("system")
+        ).pack(fill=tk.X, pady=5)
+        
+        # Wait for dialog to close
+        self.root.wait_window(dialog)
+        
+        if scan_result['type'] is None:  # User closed the dialog
+            return
+            
+        if scan_result['type'] == "system":
+            # Existing system-wide scan
+            temp_files = self.temp_scanner.scan_temp_files()
+        else:
+            # New directory-specific scan
+            temp_files = self._scan_directory_temp_files(directory)
+            
         if not temp_files:
             self.refresh_files_list([])  # This will show "No files found" message
         else:
             self.refresh_files_list(temp_files)
 
+    def _scan_directory_temp_files(self, directory: str) -> List[FileInfo]:
+        """Scan for temporary files in a specific directory."""
+        temp_files = []
+        temp_extensions = ['.tmp', '.temp', '.$$$', '.wbk', '.~*']
+        
+        try:
+            for root, _, files in os.walk(directory):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    # Check if file ends with any temp extension
+                    if any(file.lower().endswith(ext) for ext in temp_extensions):
+                        try:
+                            stats = os.stat(file_path)
+                            file_info = FileInfo(
+                                path=file_path,
+                                original_path=file_path,  # Add this line to fix the error
+                                original_name=file,
+                                size=stats.st_size,
+                                modified=datetime.fromtimestamp(stats.st_mtime),
+                                recovery_type='temp',
+                                confidence=0.9  # High confidence for matching extensions
+                            )
+                            temp_files.append(file_info)
+                        except (OSError, PermissionError):
+                            continue
+                    
+                    # Also check for files that might be temporary based on patterns
+                    elif ('temp' in file.lower() or 'tmp' in file.lower()):
+                        try:
+                            stats = os.stat(file_path)
+                            file_info = FileInfo(
+                                path=file_path,
+                                original_path=file_path,  # Add this line to fix the error
+                                original_name=file,
+                                size=stats.st_size,
+                                modified=datetime.fromtimestamp(stats.st_mtime),
+                                recovery_type='temp',
+                                confidence=0.7  # Lower confidence for pattern matching
+                            )
+                            temp_files.append(file_info)
+                        except (OSError, PermissionError):
+                            continue
+                            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error scanning directory: {str(e)}")
+            return []
+            
+        return temp_files
 
 
     def scan_hidden_files(self):

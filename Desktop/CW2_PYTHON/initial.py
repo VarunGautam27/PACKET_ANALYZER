@@ -8,7 +8,7 @@ init(autoreset=True)
 # Define the file paths
 FILES = {
     "1": "C:\\Users\\LENONO\\Desktop\\CW2_PYTHON\\recoveryCLI.py",
-    "2": "C:\\Users\\LENONO\\Desktop\\CW2_PYTHON\\datarecover.py",
+    "2": "C:\\Users\\LENONO\\Desktop\\CW2_PYTHON\\FINAL_GUI.py",
     "3": "C:\\Users\\LENONO\\Desktop\\CW2_PYTHON\\test_recovery3.py"
 }
 
